@@ -1,0 +1,45 @@
+{
+    "config":{
+        "host_tile38":"192.168.212.109",
+		"host_rabbitmq":"192.168.212.109",
+		"host_rabbitmq_username":"fabio",
+		"host_rabbitmq_psw":"progtrl01",
+        "tile38_key":"trilogis",
+		"tile38_id":"truckk",
+		"backgound_image_max_X":6623,
+		"backgound_image_max_Y":4678,
+		"pt_A_real_X": 1227755.4657004555,
+		"pt_A_real_Y": 5762797.0275843935,
+		"pt_A_virtual_X": 0.0,
+		"pt_A_virtual_Y": 0.0,
+		"pt_B_real_X": 1227807.1179441835,
+		"pt_B_real_Y": 5762829.334327161,
+		"pt_B_virtual_X": 32.88,
+		"pt_B_virtual_Y": 26.99,
+		"latitude": 45.8908,
+		"pt_0_pix_src_image_X": 53,
+		"pt_0_pix_src_image_Y": 490,
+		"pt_0_pix_dst_image_X": 0,
+		"pt_0_pix_dst_image_Y": 450,
+		
+		"pt_1_pix_src_image_X": 321,
+		"pt_1_pix_src_image_Y": 250,
+		"pt_1_pix_dst_image_X": 0,
+		"pt_1_pix_dst_image_Y": 50,
+		
+		"pt_2_pix_src_image_X": 652,
+		"pt_2_pix_src_image_Y": 281,
+		"pt_2_pix_dst_image_X": 350,
+		"pt_2_pix_dst_image_Y": 50,
+		
+		"pt_3_pix_src_image_X": 604,
+		"pt_3_pix_src_image_Y": 349,
+		"pt_3_pix_dst_image_X": 300,
+		"pt_3_pix_dst_image_Y": 250,
+		
+		"pt_4_pix_src_image_X": 711,
+		"pt_4_pix_src_image_Y": 485,
+		"pt_4_pix_dst_image_X": 350,
+		"pt_4_pix_dst_image_Y": 400
+    }
+}
