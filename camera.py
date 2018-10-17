@@ -59,7 +59,7 @@ def increment_heatmap_value(img, rects, matrix_h, resize_val):
         new_y = max(0,point_dest[0][0][1])
         new_y = min(image_max_y_dimension,point_dest[0][0][1])    
         new_y =  int(new_y)                           
-        img[new_y-1, new_x-1] = img[new_y-1, new_x-1]+10
+        img[new_y-1, new_x-1] = img[new_y-1, new_x-1]+1
 
 
 def rescale_heatmap_image_value(img):
@@ -78,7 +78,7 @@ if __name__ == '__main__':
                                 # other resize change this vale (example 2,1 4,2 .....)
     cell_heatmap_step = 20
     zoom_heatmap = 10.0
-
+ 
     with open('configReal.json') as json_data_file:
         data = json.load(json_data_file)  
     #point in source and destination images to create the Homography transformation
