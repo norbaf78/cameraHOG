@@ -64,6 +64,13 @@ def increment_heatmap_value(img, rects, matrix_h, resize_val):
         new_y = min(image_max_y_dimension,point_dest[0][0][1])    
         new_y =  int(new_y)                           
         img[new_y-1, new_x-1] = img[new_y-1, new_x-1]+1
+        
+def convert_homography_point(x, y, w, h, matrix_h):
+    pad_w, pad_h = int(0.15*w), int(0.05*h) 
+    point_source = np.array([[(x+pad_w + w/2), (y+h)]], dtype='float32')
+    point_source = np.array([point_source])
+    point_dest = cv2.perspectiveTransform(point_source, matrix_h) 
+    return point_dest[0][0][0], point_dest[0][0][1]         
 
 
 def rescale_heatmap_image_value(img):
@@ -152,7 +159,8 @@ if __name__ == '__main__':
     #connect to rabbitmq
     ####################################################
     credentials = pika.PlainCredentials(host_rabbitmq_username, host_rabbitmq_psw)
-    parameters = pika.ConnectionParameters(host_rabbitmq,5672,'/',credentials, socket_timeout=10000000, heartbeat_interval=0,blocked_connection_timeout=300)
+    #parameters = pika.ConnectionParameters(host_rabbitmq,5672,'/',credentials, socket_timeout=10000000, heartbeat_interval=0,blocked_connection_timeout=300)
+    parameters = pika.ConnectionParameters(host_rabbitmq,5672,'/',credentials)
     connection = pika.BlockingConnection(parameters)
     channel = connection.channel()    
 
@@ -175,10 +183,10 @@ if __name__ == '__main__':
 #    position_frame = cv2.resize(big_position_frame, (0,0), fx=1.0/resize_img, fy=1.0/resize_img) 
     #set the background image for the heatmap. Starting acquiring the dimension of the image where the elaboration have been made
     rows_map_frame,cols_map_frame, _ = img_map.shape 
-    img_map_view = np.zeros((cols_map_frame/4, rows_map_frame/4, 3), np.uint8)
+    img_map_view = np.zeros((int(cols_map_frame/4), int(rows_map_frame/4), 3), np.uint8)
     # rows_position_frame,cols_position_frame, _ = img_map.shape
     # ne channel iamge is the starting point for the heatmap
-    heatmap_gray = np.zeros((rows_map_frame/cell_heatmap_step, cols_map_frame/cell_heatmap_step, 1), dtype = np.uint8)
+    heatmap_gray = np.zeros((int(rows_map_frame/cell_heatmap_step), int(cols_map_frame/cell_heatmap_step), 1), dtype = np.uint8)
     # create the windows where the image will be visible and where will be possible define the points
 #    cv2.namedWindow('position')
 #    cv2.setMouseCallback('position', onclick)
@@ -198,24 +206,30 @@ if __name__ == '__main__':
         heatmap_color_resize_big = cv2.resize(heatmap_color, (0,0), fx=zoom_heatmap, fy=zoom_heatmap)
         
         #convert data in geographic position and provide the data to rabbitmq
-        for x, y, _, _  in found:
-            metersX,metersY = transformer.pixelToMeter(x,y,image_map_max_X,image_map_max_Y)            
+        for x, y, dim_h, dim_w  in found:
+            homographyX_in_pixel, homographyY_in_pixel = convert_homography_point(x, y, dim_w, dim_h, h)
+            homographyY_in_pixel = image_map_max_Y - homographyY_in_pixel
+            metersX,metersY = transformer.pixelToMeter(homographyX_in_pixel,homographyY_in_pixel,image_map_max_X,image_map_max_Y)  
+            print(metersX)
+            print(metersY)
             newx,newy = transformer.transform(metersX,metersY)       
-            newy,newx = reprojecter.MetersToLatLon(newx,newy)
+            newy,newx = reprojecter.MetersToLatLon(newx,newy)            
             # insert data in queue in rabbitmq
             body = '{"type":"Feature","geometry":{"type":"Point","coordinates":[' + str(newy) + ',' + str(newx) + ']},"properties":{"key":"' + key + '","id":"' + id + '","timestamp":"' + str(time.time()) + '"}}'
-           # channel.basic_publish(exchange='trilogis_exchange_pos',routing_key='trilogis_position',body=body, properties=pika.BasicProperties(delivery_mode = 2)) # make message persistent
-                  
+            channel.basic_publish(exchange='trilogis_exchange_pos',routing_key='trilogis_position',body=body, properties=pika.BasicProperties(delivery_mode = 2)) # make message persistent
+#newx,newy = reprojecter.latLonToMeters(newy,newx)
+#newx,newy = transformer.inverseTransform(newx,newy)
+#transformer.meterToPixel(newx,newy)
                 
         cv2.imshow('feed',frame)  
         cv2.imshow('heatmap',heatmap_color_resize_big) 
         #cv2.imshow('homography',img_map)           
-        img_map_view = cv2.resize(img_map, (cols_map_frame/4,  rows_map_frame/4))
+        img_map_view = cv2.resize(img_map, (int(cols_map_frame/4),  int(rows_map_frame/4)))
         cv2.imshow('homography',img_map_view)
         ch = 0xFF & cv2.waitKey(1)
         if ch == 27:
             break
     res = connection.close()
-    print 'rabbitmq connection close - ' + str(res)  
+    print ('rabbitmq connection close - ' + str(res))  
     cv2.destroyAllWindows()
     
