@@ -1,0 +1,6 @@
+C:\Users\fabio.roncato\AppData\Local\Continuum\anaconda2\Scripts dove trovare pip e conda
+creato new enviroment "py36"
+conda info --envs
+python --version
+activate py36
+deactivate
