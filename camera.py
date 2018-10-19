@@ -34,20 +34,8 @@ def draw_detections(img, rects, thickness = 3):
         # so we slightly shrink the rectangles to get a nicer output.
         pad_w, pad_h = int(0.15*w), int(0.05*h)
         cv2.rectangle(img, (x+pad_w, y+pad_h), (x+w-pad_w, y+h-pad_h), (0, 255, 0), thickness)
-        
-def draw_homography_point(img, rects, matrix_h, thickness = 3):
-    for x, y, w, h in rects:
-        pad_w, pad_h = int(0.15*w), int(0.05*h) 
-        point_source = np.array([[(x+pad_w + w/2), (y+h)]], dtype='float32')
-        point_source = np.array([point_source])
-        point_dest = cv2.perspectiveTransform(point_source, matrix_h) 
-        image_max_y_dimension,image_max_x_dimension,_ = img.shape
-        new_x = max(0,point_dest[0][0][0])
-        new_x = min(image_max_x_dimension,point_dest[0][0][0])
-        new_y = max(0,point_dest[0][0][1])
-        new_y = min(image_max_y_dimension,point_dest[0][0][1]) 
-        cv2.circle(img, (new_x, new_y), 3, (0,0,255), -1 )  
-        
+    
+    
 def increment_heatmap_value(img, rects, matrix_h, resize_val):
     for x, y, w, h in rects:
         pad_w, pad_h = int(0.15*w), int(0.05*h)                
@@ -65,10 +53,37 @@ def increment_heatmap_value(img, rects, matrix_h, resize_val):
         new_y =  int(new_y)                           
         img[new_y-1, new_x-1] = img[new_y-1, new_x-1]+1
         
+        
+def draw_homography_point(img, rects, matrix_h, thickness = 3):
+    for x, y, w, h in rects:
+        print(x)
+        print(y)
+        print(w)
+        print(h)        
+        pad_w, pad_h = int(0.15*w), int(0.05*h) 
+        point_source = np.array([[(x+pad_w + w/2), (y+h)]], dtype='float32')
+        point_source = np.array([point_source])
+        print(point_source)
+        point_dest = cv2.perspectiveTransform(point_source, matrix_h) 
+        image_max_y_dimension,image_max_x_dimension,_ = img.shape
+        new_x = max(0,point_dest[0][0][0])
+        new_x = min(image_max_x_dimension,point_dest[0][0][0])
+        new_y = max(0,point_dest[0][0][1])
+        new_y = min(image_max_y_dimension,point_dest[0][0][1]) 
+        cv2.circle(img, (new_x, new_y), 3, (0,0,255), -1 )  
+        print(new_x)
+        print(new_y)
+        
+        
 def convert_homography_point(x, y, w, h, matrix_h):
+    print(x)
+    print(y)
+    print(w)
+    print(h)   
     pad_w, pad_h = int(0.15*w), int(0.05*h) 
     point_source = np.array([[(x+pad_w + w/2), (y+h)]], dtype='float32')
     point_source = np.array([point_source])
+    print(point_source)
     point_dest = cv2.perspectiveTransform(point_source, matrix_h) 
     return point_dest[0][0][0], point_dest[0][0][1]         
 
@@ -84,8 +99,8 @@ def rescale_heatmap_image_value(img):
 
 if __name__ == '__main__':
 
-    resize_img = 4 # the resize to the acquired image. The HOG will be evaluated on the resized image
-    additional_resize_point = 2 # the point in the image (source point for the homography) have been taken with resize_img=2. In case of
+    resize_img = 3 # the resize to the acquired image. The HOG will be evaluated on the resized image
+    additional_resize_point = 1.5 # the point in the image (source point for the homography) have been taken with resize_img=2. In case of
                                 # other resize change this vale (example 2,1 4,2 .....)
     cell_heatmap_step = 20
     zoom_heatmap = 4.0
@@ -173,7 +188,6 @@ if __name__ == '__main__':
     cv2.namedWindow('homography')
     #cv2.imshow('homography',img_map)  
 
-
     hog = cv2.HOGDescriptor()
     hog.setSVMDetector( cv2.HOGDescriptor_getDefaultPeopleDetector() )
     cap=cv2.VideoCapture("http://root:progtrl01@192.168.208.55/mjpg/1/video.mjpg")
@@ -206,25 +220,20 @@ if __name__ == '__main__':
         heatmap_color_resize_big = cv2.resize(heatmap_color, (0,0), fx=zoom_heatmap, fy=zoom_heatmap)
         
         #convert data in geographic position and provide the data to rabbitmq
-        for x, y, dim_h, dim_w  in found:
-            homographyX_in_pixel, homographyY_in_pixel = convert_homography_point(x, y, dim_w, dim_h, h)
+        for x, y, dim_w, dim_h  in found:             
+            homographyX_in_pixel, homographyY_in_pixel = convert_homography_point(x, y, dim_w, dim_h, h)          
             homographyY_in_pixel = image_map_max_Y - homographyY_in_pixel
             metersX,metersY = transformer.pixelToMeter(homographyX_in_pixel,homographyY_in_pixel,image_map_max_X,image_map_max_Y)  
-            print(metersX)
-            print(metersY)
             newx,newy = transformer.transform(metersX,metersY)       
             newy,newx = reprojecter.MetersToLatLon(newx,newy)            
             # insert data in queue in rabbitmq
             body = '{"type":"Feature","geometry":{"type":"Point","coordinates":[' + str(newy) + ',' + str(newx) + ']},"properties":{"key":"' + key + '","id":"' + id + '","timestamp":"' + str(time.time()) + '"}}'
             channel.basic_publish(exchange='trilogis_exchange_pos',routing_key='trilogis_position',body=body, properties=pika.BasicProperties(delivery_mode = 2)) # make message persistent
-#newx,newy = reprojecter.latLonToMeters(newy,newx)
-#newx,newy = transformer.inverseTransform(newx,newy)
-#transformer.meterToPixel(newx,newy)
-                
+              
         cv2.imshow('feed',frame)  
         cv2.imshow('heatmap',heatmap_color_resize_big) 
         #cv2.imshow('homography',img_map)           
-        img_map_view = cv2.resize(img_map, (int(cols_map_frame/4),  int(rows_map_frame/4)))
+        img_map_view = cv2.resize(img_map, (int(cols_map_frame/4), int(rows_map_frame/4)))
         cv2.imshow('homography',img_map_view)
         ch = 0xFF & cv2.waitKey(1)
         if ch == 27:
