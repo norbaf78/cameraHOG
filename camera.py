@@ -12,6 +12,7 @@ import pika
 import time
 from transform import CoordinateTransform
 from reprojecter import ReprojectTo4326
+from pyimagesearch.centroidtracker import CentroidTracker
 
 def onclick(event, x, y, flags, param):
     #print("onclick !!" +  key + " " + id)
@@ -56,14 +57,14 @@ def increment_heatmap_value(img, rects, matrix_h, resize_val):
         
 def draw_homography_point(img, rects, matrix_h, thickness = 3):
     for x, y, w, h in rects:
-        print(x)
-        print(y)
-        print(w)
-        print(h)        
+        #print(x)
+        #print(y)
+        #print(w)
+        #print(h)        
         pad_w, pad_h = int(0.15*w), int(0.05*h) 
         point_source = np.array([[(x+pad_w + w/2), (y+h)]], dtype='float32')
         point_source = np.array([point_source])
-        print(point_source)
+        #print(point_source)
         point_dest = cv2.perspectiveTransform(point_source, matrix_h) 
         image_max_y_dimension,image_max_x_dimension,_ = img.shape
         new_x = max(0,point_dest[0][0][0])
@@ -71,19 +72,19 @@ def draw_homography_point(img, rects, matrix_h, thickness = 3):
         new_y = max(0,point_dest[0][0][1])
         new_y = min(image_max_y_dimension,point_dest[0][0][1]) 
         cv2.circle(img, (new_x, new_y), 3, (0,0,255), -1 )  
-        print(new_x)
-        print(new_y)
+        #print(new_x)
+        #print(new_y)
         
         
 def convert_homography_point(x, y, w, h, matrix_h):
-    print(x)
-    print(y)
-    print(w)
-    print(h)   
+    #print(x)
+    #print(y)
+    #print(w)
+    #print(h)   
     pad_w, pad_h = int(0.15*w), int(0.05*h) 
     point_source = np.array([[(x+pad_w + w/2), (y+h)]], dtype='float32')
     point_source = np.array([point_source])
-    print(point_source)
+    #print(point_source)
     point_dest = cv2.perspectiveTransform(point_source, matrix_h) 
     return point_dest[0][0][0], point_dest[0][0][1]         
 
@@ -104,6 +105,8 @@ if __name__ == '__main__':
                                 # other resize change this vale (example 2,1 4,2 .....)
     cell_heatmap_step = 20
     zoom_heatmap = 4.0
+    
+    ct = CentroidTracker()
 
     transformer = CoordinateTransform()
     reprojecter = ReprojectTo4326()
@@ -218,18 +221,45 @@ if __name__ == '__main__':
         heatmap_gray = rescale_heatmap_image_value(heatmap_gray)        
         heatmap_color = cv2.applyColorMap(heatmap_gray, cv2.COLORMAP_JET)
         heatmap_color_resize_big = cv2.resize(heatmap_color, (0,0), fx=zoom_heatmap, fy=zoom_heatmap)
+
+        rects_homography = []
+        rects_lat_lon = []
         
         #convert data in geographic position and provide the data to rabbitmq
         for x, y, dim_w, dim_h  in found:             
             homographyX_in_pixel, homographyY_in_pixel = convert_homography_point(x, y, dim_w, dim_h, h)          
+            box_h = [int(homographyX_in_pixel), int(homographyY_in_pixel), int(dim_w), int(dim_h)]
             homographyY_in_pixel = image_map_max_Y - homographyY_in_pixel
+            rects_homography.append(box_h)
+                     
             metersX,metersY = transformer.pixelToMeter(homographyX_in_pixel,homographyY_in_pixel,image_map_max_X,image_map_max_Y)  
             newx,newy = transformer.transform(metersX,metersY)       
-            newy,newx = reprojecter.MetersToLatLon(newx,newy)            
-            # insert data in queue in rabbitmq
-            body = '{"type":"Feature","geometry":{"type":"Point","coordinates":[' + str(newy) + ',' + str(newx) + ']},"properties":{"key":"' + key + '","id":"' + id + '","timestamp":"' + str(time.time()) + '"}}'
-            channel.basic_publish(exchange='trilogis_exchange_pos',routing_key='trilogis_position',body=body, properties=pika.BasicProperties(delivery_mode = 2)) # make message persistent
+            newy,newx = reprojecter.MetersToLatLon(newx,newy)  
+            box_lat_lon = [newy, newx]            
+            rects_lat_lon.append(box_lat_lon)
+           
+            # insert data in queue in rabbitmq            
+            #body = '{"name":"' + id + '","timestamp":"2018-10-19T12:46:50.985+0200","geometry":{"type":"Point","coordinates":[' + str(newx) + ',' + str(newy) + ']},"accuracy":0.8, "source":{"type":"Manual","name":"PythonClient"},"extra":{"Tile38Key":"' + key + '","SoftwareVersion":"1.0-SNAPSHOT"}}'
+            #channel.basic_publish(exchange='trilogis_exchange_pos',routing_key='trilogis_position',body=body, properties=pika.BasicProperties(delivery_mode = 2)) # make message persistent
               
+        objects = ct.update(rects_homography)
+        
+        # loop over the tracked objects
+        for (objectID, centroid) in objects.items():
+            # draw both the ID of the object and the centroid of the
+            # object on the output frame
+            text = "ID {}".format(objectID)
+            cv2.putText(img_map, text, (centroid[0] - 10, centroid[1] - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 2)
+  
+        for newy, newx  in rects_lat_lon:           
+            # insert data in queue in rabbitmq            
+            body = '{"name":"' + id + '","timestamp":"2018-10-19T12:46:50.985+0200","geometry":{"type":"Point","coordinates":[' + str(newx) + ',' + str(newy) + ']},"accuracy":0.8, "source":{"type":"Manual","name":"PythonClient"},"extra":{"Tile38Key":"' + key + '","SoftwareVersion":"1.0-SNAPSHOT"}}'
+            print("coordinate point", newx, newy)
+            #channel.basic_publish(exchange='trilogis_exchange_pos',routing_key='trilogis_position',body=body, properties=pika.BasicProperties(delivery_mode = 2)) # make message persistent
+                
+
+        
         cv2.imshow('feed',frame)  
         cv2.imshow('heatmap',heatmap_color_resize_big) 
         #cv2.imshow('homography',img_map)           
