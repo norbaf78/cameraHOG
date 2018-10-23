@@ -237,28 +237,24 @@ if __name__ == '__main__':
             newy,newx = reprojecter.MetersToLatLon(newx,newy)  
             box_lat_lon = [newy, newx]            
             rects_lat_lon.append(box_lat_lon)
-           
-            # insert data in queue in rabbitmq            
-            #body = '{"name":"' + id + '","timestamp":"2018-10-19T12:46:50.985+0200","geometry":{"type":"Point","coordinates":[' + str(newx) + ',' + str(newy) + ']},"accuracy":0.8, "source":{"type":"Manual","name":"PythonClient"},"extra":{"Tile38Key":"' + key + '","SoftwareVersion":"1.0-SNAPSHOT"}}'
-            #channel.basic_publish(exchange='trilogis_exchange_pos',routing_key='trilogis_position',body=body, properties=pika.BasicProperties(delivery_mode = 2)) # make message persistent
-              
-        objects = ct.update(rects_homography)
-        
+                       
+            
+        objects = ct.update(rects_homography)  
         # loop over the tracked objects
         for (objectID, centroid) in objects.items():
             # draw both the ID of the object and the centroid of the
             # object on the output frame
             text = "ID {}".format(objectID)
+            print(text)
             cv2.putText(img_map, text, (centroid[0] - 10, centroid[1] - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 2)
   
+    
         for newy, newx  in rects_lat_lon:           
             # insert data in queue in rabbitmq            
-            body = '{"name":"' + id + '","timestamp":"2018-10-19T12:46:50.985+0200","geometry":{"type":"Point","coordinates":[' + str(newx) + ',' + str(newy) + ']},"accuracy":0.8, "source":{"type":"Manual","name":"PythonClient"},"extra":{"Tile38Key":"' + key + '","SoftwareVersion":"1.0-SNAPSHOT"}}'
-            print("coordinate point", newx, newy)
+            body = '{"name":"' + id + '","timestamp":"2018-10-19T12:46:50.985+0200","geometry":{"type":"Point","coordinates":[' + str(newx) + ',' + str(newy) + ']},"accuracy":0.8, "source":{"type":"Manual","name":"PythonClient"},"extra":{"Tile38Key":"' + key + '","SoftwareVersion":"1.0-SNAPSHOT"}}'            
             #channel.basic_publish(exchange='trilogis_exchange_pos',routing_key='trilogis_position',body=body, properties=pika.BasicProperties(delivery_mode = 2)) # make message persistent
                 
-
         
         cv2.imshow('feed',frame)  
         cv2.imshow('heatmap',heatmap_color_resize_big) 
