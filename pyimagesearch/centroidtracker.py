@@ -1,10 +1,12 @@
 # import the necessary packages
+# https://www.pyimagesearch.com/2018/07/23/simple-object-tracking-with-opencv/
 from scipy.spatial import distance as dist
 from collections import OrderedDict
 import numpy as np
+import cv2
 
 class CentroidTracker():
-	def __init__(self, maxDisappeared=6):  # inertia associated to the recognize
+	def __init__(self, maxDisappeared=10):  # inertia associated to the recognize
 		# initialize the next unique object ID along with two ordered
 		# dictionaries used to keep track of mapping a given object
 		# ID to its centroid and number of consecutive frames it has
@@ -12,7 +14,7 @@ class CentroidTracker():
 		self.nextObjectID = 0
 		self.objects = OrderedDict()
 		self.disappeared = OrderedDict()
-
+       
 		# store the number of maximum consecutive frames a given
 		# object is allowed to be marked as "disappeared" until we
 		# need to deregister the object from tracking
@@ -24,6 +26,8 @@ class CentroidTracker():
 		self.objects[self.nextObjectID] = centroid
 		self.disappeared[self.nextObjectID] = 0
 		self.nextObjectID += 1
+		if(self.nextObjectID > 999):
+			self.nextObjectID = 0
 
 	def deregister(self, objectID):
 		# to deregister an object ID we delete the object ID from
@@ -61,7 +65,6 @@ class CentroidTracker():
 			cY = int(startY + (dimH / 2.0))
 			inputCentroids[i] = (cX, cY)
              
-
 		# if we are currently not tracking any objects take the input
 		# centroids and register each of them
 		if len(self.objects) == 0:
@@ -160,15 +163,23 @@ class CentroidTracker():
 		if len(rects) == 0:
 			# loop over any existing tracked objects and mark them
 			# as disappeared
-			for objectID in self.disappeared.keys():
-				self.disappeared[objectID] += 1
+			print("START: ", self.disappeared)
+			#for objectID in self.disappeared.keys():
+			for objectID in reversed(sorted(self.disappeared.keys())): 
+				try:                
+					self.disappeared[objectID] += 1
+					#print("disappeared: %d value: %d", objectID, self.disappeared[objectID])				
+					# if we have reached a maximum number of consecutive
+					# frames where a given object has been marked as
+					# missing, deregister it                  
+					if self.disappeared[objectID] > self.maxDisappeared:
+						print("deregistr: ", objectID)
+						self.deregister(objectID)						
+				except:
+					print("try except")
+					cv2.waitkey()
 
-				# if we have reached a maximum number of consecutive
-				# frames where a given object has been marked as
-				# missing, deregister it
-				if self.disappeared[objectID] > self.maxDisappeared:
-					self.deregister(objectID)
-
+			print("END: ", self.disappeared)
 			# return early as there are no centroids or tracking info
 			# to update
 			return self.objects

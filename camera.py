@@ -208,7 +208,7 @@ if __name__ == '__main__':
 #    cv2.namedWindow('position')
 #    cv2.setMouseCallback('position', onclick)
      
- 
+    
     while True:
         _,big_frame=cap.read() # acquire a new image
         frame = cv2.resize(big_frame, (0,0), fx=1.0/resize_img, fy=1.0/resize_img) # resize the original image (this is the image ready for the elaboration)
@@ -236,19 +236,21 @@ if __name__ == '__main__':
             metersX,metersY = transformer.pixelToMeter(homographyX_in_pixel,homographyY_in_pixel,image_map_max_X,image_map_max_Y)  
             newx,newy = transformer.transform(metersX,metersY)       
             newy,newx = reprojecter.MetersToLatLon(newx,newy)  
-            box_lat_lon = [newy, newx]            
+            box_lat_lon = [newy, newx]           
             rects_lat_lon.append(box_lat_lon)
                               
-        objects = ct.update2(rects_lat_lon)###################
+        objects = ct.update2(rects_lat_lon)             
+               
         # loop over the tracked objects
         for (objectID, centroid) in objects.items():
             # draw both the ID of the object and the centroid of the
             # object on the output frame
             text = "ID {}".format(objectID)
             print(text)
-             # insert data in queue in rabbitmq            
-            body = '{"name":"' + str(objectID) + '","timestamp":"2018-10-19T12:46:50.985+0200","geometry":{"type":"Point","coordinates":[' + str(centroid[0]) + ',' + str(centroid[1]) + ']},"accuracy":0.8, "source":{"type":"Manual","name":"PythonClient"},"extra":{"Tile38Key":"' + key + '","SoftwareVersion":"1.0-SNAPSHOT"}}'            
-            channel.basic_publish(exchange='trilogis_exchange_pos',routing_key='trilogis_position',body=body, properties=pika.BasicProperties(delivery_mode = 2)) # make message persistent
+            # insert data in queue in rabbitmq 
+            body = '{"name":"' + str(objectID) + '","timestamp":"2018-10-19T12:46:50.985+0200","geometry":{"type":"Point","coordinates":[' + str(centroid[1]) + ',' + str(centroid[0]) + ']},"accuracy":0.8, "source":{"type":"Manual","name":"PythonClientCameraRD"},"extra":{"Tile38Key":"' + key + '","SoftwareVersion":"1.0-SNAPSHOT"}}'            
+            print(centroid[1], centroid[0])
+            #channel.basic_publish(exchange='trilogis_exchange_pos',routing_key='trilogis_position',body=body, properties=pika.BasicProperties(delivery_mode = 2)) # make message persistent
             
             
         cv2.imshow('feed',frame)  
